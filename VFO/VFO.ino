@@ -21,6 +21,8 @@ int stepIndex = 0;
 long lastButtonPress[] = {0,0,0,0,0};
 boolean buttonActive[] = {false, false, false, false, false};
 
+long encoderPosition = 0;
+
 const long MIN_FREQ = 8500;
 const long MAX_FREQ = 150000000;
 
@@ -40,10 +42,15 @@ Si5351 si5351;
 //SCL is on pin A5 for Arduino Uno
 
 //--------Tuning Knob Interrupt Pins-------//
-//Encoder knob(2, 3);
-const int PIN_BUTTON_UP = 2;
-const int PIN_BUTTON_DOWN = 3;
-const int PIN_BUTTON_STEP = 4;
+//Encoder knob(2, 3), pushbutton on 1
+
+Encoder encoder(2, 3);
+const int PIN_BUTTON_ENCODER = 1;
+
+//Button Pins//
+const int PIN_BUTTON_UP = 4;
+const int PIN_BUTTON_DOWN = 5;
+const int PIN_BUTTON_STEP = 6;
 const int BUTTON_DEBOUNCE_TIME = 10; //milliseconds
 
 void setup(){
@@ -74,10 +81,16 @@ void setup(){
 void loop(){
   displayInfo();
   delay(200);
-  
-  if (checkButtonPress(PIN_BUTTON_UP)){currFreq += steps[stepIndex]; currFreq = min(currFreq, MAX_FREQ); si5351.set_freq(currFreq * 100ULL, 0ULL, SI5351_CLK0);}
-  if (checkButtonPress(PIN_BUTTON_DOWN)){currFreq -= steps[stepIndex]; currFreq = max(currFreq, MIN_FREQ); si5351.set_freq(currFreq * 100ULL, 0ULL, SI5351_CLK0);}
-  if (checkButtonPress(PIN_BUTTON_STEP)){stepIndex = (stepIndex + 1) % (MAX_STEP_INDEX+1);}
+
+  //detect whether encoder has changed position
+  long reading = encoder.read();
+  long encoderChange = reading - encoderPosition;
+  encoderPosition = reading;
+
+  //step up or down or change step size, for either button presses or encoder turns
+  if (checkButtonPress(PIN_BUTTON_UP) || (encoderChange > 0)){currFreq += steps[stepIndex]; currFreq = min(currFreq, MAX_FREQ); si5351.set_freq(currFreq * 100ULL, 0ULL, SI5351_CLK0);}
+  if (checkButtonPress(PIN_BUTTON_DOWN) || (encoderChange < 0)){currFreq -= steps[stepIndex]; currFreq = max(currFreq, MIN_FREQ); si5351.set_freq(currFreq * 100ULL, 0ULL, SI5351_CLK0);}
+  if (checkButtonPress(PIN_BUTTON_STEP) || checkButtonPress(PIN_BUTTON_ENCODER)){stepIndex = (stepIndex + 1) % (MAX_STEP_INDEX+1);}
 
 }
 
