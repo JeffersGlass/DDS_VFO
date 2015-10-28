@@ -25,20 +25,20 @@ char* modeNames[NUM_MODES] = {"TEST", "VFO", "POLYA", "BFO"};
 
 long steps[][10] = { //don't forget to update the MAX_STEPS_INDEX array below
   {10000000, 5000000, 1000000, 500000, 100000, 10000, 1000, 10, 1}, //testing
-  {10000, 1000, 100, 10, 1}, //basic
+  {10000, 1000, 100, 10}, //basic
   {1000, 100, 10, 1}, //polyakov
   {1000, 100, 10, 1}, //bfo
 };
 
 const int NUM_STEP_OPTIONS[NUM_MODES] = {
   10, //testing
-  5, //basic
+  4, //basic
   4, //polyakov
   4, //bfo
 };
 char* stepNames[][10] = {
   {" 10MHz", "  5MHz", "  1MHz", "500Khz", "100KHz", " 10KHz", "  1KHz", " 100Hz", "  10Hz", "  1 Hz"}, //basic
-  {" 10KHz", "  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //basic
+  {" 10KHz", "  1KHz", " 100 Hz", " 10 Hz"}, //basic
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //polyakov
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"} //BFO
 };
@@ -193,7 +193,7 @@ void loop(){
     }
     else if (currBand == -1){
       for (int i = 0; i < NUM_BANDS; i++){
-        if (currFreq < lastBandFreq[i]){currFreq = lastBandFreq[i]; setFrequency_5351(currFreq);}
+        if (currFreq < lastBandFreq[i]){currFreq = lastBandFreq[i]; setFrequency_5351(currFreq); break;}
       }
     }
     displayNeedsUpdate = true;
