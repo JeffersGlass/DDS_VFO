@@ -123,10 +123,6 @@ const int PIN_BUTTON_MODE = 4;
 const int PIN_BUTTON_BAND = 0;
 const int BUTTON_DEBOUNCE_TIME = 10; //milliseconds
 
-//SWR Sensor Pins
-const int PIN_SWR_FORWARD = A1;
-const int PIN_SWR_REVERSE = A0;
-
 void setup(){
   // inialize LCD, display welcome message
   lcd.begin(20, 4);
@@ -151,9 +147,6 @@ void setup(){
   digitalWrite(PIN_BUTTON_MODE, HIGH);
   pinMode(PIN_BUTTON_BAND, INPUT);
   digitalWrite(PIN_BUTTON_BAND, HIGH); 
-
-  pinMode(PIN_SWR_FORWARD, INPUT);
-  pinMode(PIN_SWR_REVERSE, INPUT);
 
   lcd.clear();
   lcd.setCursor(2, 7);
@@ -266,23 +259,8 @@ void displayInfo(){
   lcd.print(modeNames[currMode]);
 
   //DEBUG
-  //lcd.setCursor(0,0);
-  //lcd.print(getCurrentBand());
-
-  /*float fwd = analogRead(PIN_SWR_FORWARD);
-  float rev = analogRead(PIN_SWR_REVERSE);
-  float gamma = rev/fwd;
-  float swr = (1 + abs(gamma)) / (1 - abs(gamma));
-
-  lcd.setCursor(0, 1);
-  lcd.print(int(fwd));
-  lcd.setCursor(4, 1);
-  lcd.print(int(rev));
-  lcd.setCursor(8, 1);
-  lcd.print(gamma);
-  lcd.setCursor(14, 1);
-  lcd.print(swr);*/
-  
+  lcd.setCursor(0,0);
+  lcd.print(getCurrentBand());
 }
 
 boolean checkButtonPress(int pin){
