@@ -13,38 +13,34 @@
  * These adjustments are mode in the setFrequency_5351 function depending on the current mode held in currMode
  */
 
-long currFreq = 1800000; //in HZ
-long ifFreq = 8865000; //in HZ
+long currFreq = 1800000; 
 
 //-----Enumerations of frequency steps and their labels for each mode----//
 
-enum modes{mode_testing = 0, mode_basic, mode_polyakov, mode_bfo, mode_if};
-const int NUM_MODES = 5;
+enum modes{mode_testing = 0, mode_basic, mode_polyakov, mode_bfo};
+const int NUM_MODES = 4;
 int currMode = mode_basic;
 
-char* modeNames[NUM_MODES] = {"TEST", "VFO", "POLYA", "BFO", "IF"};
+char* modeNames[NUM_MODES] = {"TEST", "VFO", "POLYA", "BFO"};
 
-long steps[][10] = { //don't forget to update the MAX_STEPS_INDEX array below
+long steps[][10] = { //don't forget to update the NUM_STEP_OPTIONS array below
   {10000000, 5000000, 1000000, 500000, 100000, 10000, 1000, 10, 1}, //testing
   {10000, 1000, 100, 10}, //basic
   {1000, 100, 10, 1}, //polyakov
-  {1000, 100, 10, 1}, //bfo
-  {1000, 100, 10, 1} //IF Mode
+  {1000, 100, 10, 1} //bfo
 };
 
 const int NUM_STEP_OPTIONS[NUM_MODES] = {
   10, //testing
   4, //basic
   4, //polyakov
-  4, //bfo
-  4  //if
+  4 //bfo
 };
 char* stepNames[][10] = {
   {" 10MHz", "  5MHz", "  1MHz", "500Khz", "100KHz", " 10KHz", "  1KHz", " 100Hz", "  10Hz", "  1 Hz"}, //basic
   {" 10KHz", "  1KHz", " 100 Hz", " 10 Hz"}, //basic
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //polyakov
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"} //BFO
-  {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"} //IF
 };
 
 int stepIndex = 0; // holds the index of the currently selected step value
@@ -317,11 +313,6 @@ void setFrequency_5351(long newFreq){
     case mode_bfo:
       si5351.set_freq(newFreq * 100ULL, 0ULL, SI5351_CLK0);
       break;
-    case mode_if:
-      si5351.set_freq((newFreq + ifFreq) * 100UL, 0ULL, SI5351_CLK0); //VFO+IF
-      //VFO-IF
-      //IF-VFO
-      beak;
   }
 }
 
