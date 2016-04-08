@@ -43,7 +43,7 @@ char* stepNames[][10] = {
   {" 10MHz", "  5MHz", "  1MHz", "500Khz", "100KHz", " 10KHz", "  1KHz", " 100Hz", "  10Hz", "  1 Hz"}, //basic
   {" 10KHz", "  1KHz", " 100 Hz", " 10 Hz"}, //basic
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //polyakov
-  {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"} //BFO
+  {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //BFO
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"} //IF
 };
 
@@ -208,7 +208,7 @@ void loop(){
       }
     }
     displayNeedsUpdate = true;
-  }
+  }s
 }
 
 void displayInfo(){
@@ -321,7 +321,7 @@ void setFrequency_5351(long newFreq){
       si5351.set_freq((newFreq + ifFreq) * 100UL, 0ULL, SI5351_CLK0); //VFO+IF
       //VFO-IF
       //IF-VFO
-      beak;
+      break;
   }
 }
 
