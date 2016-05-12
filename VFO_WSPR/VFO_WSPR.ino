@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include <Encoder.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
@@ -23,7 +24,8 @@ long morseElementLength = 70; //ms
 
 //FOR WSPR MODE
 
-int correctionFactor = 0; //adjusts the offset of the Si5351
+double correctionFactor = 0; //adjusts the offset of the Si5351, in parts per million
+double prevCorrectionFactor = correctionFactor; //allows us to track whether the CF has changed, to save on EEPROM writes
 int WSPR_TRANSMISSION_DATA[] = { //KK9JEF EN61 30
       3,3,2,0,0,0,0,0,3,0,0,2,1,1,1,0,0,2,1,2,2,1,0,3,1,3,1,2,2,0,
       0,0,2,2,1,0,2,3,0,1,2,0,2,2,2,2,3,2,3,1,2,0,1,3,2,3,2,0,2,1,
@@ -44,11 +46,11 @@ int WSPR_TRANSMISSION_DATA[] = { //KK9JEF EN61 27
 
 //-----Enumerations of frequency steps and their labels for each mode----//
 
-enum modes{mode_testing = 0, mode_basic, mode_polyakov, mode_bfo, mode_WSPR, mode_CQ};
-const int NUM_MODES = 6;
+enum modes{mode_testing = 0, mode_basic, mode_polyakov, mode_bfo, mode_WSPR, mode_CQ, mode_calibrate};
+const int NUM_MODES = 7;
 int currMode = mode_basic;
 
-char* modeNames[NUM_MODES] = {"TEST", "VFO", "POLYA", "BFO", "WSPR", "CQ"};
+char* modeNames[NUM_MODES] = {"TEST", "VFO", "POLYA", "BFO", "WSPR", "CQ", "CAL"};
 
 long steps[][10] = { //don't forget to update the NUM_STEP_OPTIONS array below
   {10000000, 5000000, 1000000, 500000, 100000, 10000, 1000, 10, 1}, //testing
@@ -56,7 +58,8 @@ long steps[][10] = { //don't forget to update the NUM_STEP_OPTIONS array below
   {1000, 100, 10, 1}, //polyakov
   {1000, 100, 10, 1}, //bfo
   {5}, //WSPR
-  {500} //CQ
+  {500}, //CQ
+  {1} //calibrate
 };
 
 const int NUM_STEP_OPTIONS[NUM_MODES] = {
@@ -65,7 +68,8 @@ const int NUM_STEP_OPTIONS[NUM_MODES] = {
   4, //polyakov
   4, //bfo
   1, //wspr
-  1 //cq
+  1, //cq
+  1  //calibrate
 };
 char* stepNames[][10] = {
   {" 10MHz", "   5MHz", "  1MHz", "500Khz", "100KHz", " 10KHz", "  1KHz", " 100Hz", "  10Hz", "  1 Hz"}, //basic
@@ -73,7 +77,8 @@ char* stepNames[][10] = {
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //polyakov
   {"  1KHz", " 100 Hz", " 10 Hz", "  1 Hz"}, //BFO
   {"  5 Hz"}, //WSPR
-  {" 500Hz"} //CQ
+  {" 500Hz"}, //CQ
+  {" 1 ppm"} //Calibrate
 };
 
 int stepIndex = 0; // holds the index of the currently selected step value
@@ -185,15 +190,6 @@ void setup(){
   lcd.setCursor(4, 1);
   lcd.print("VFO STARTING");
   
-  si5351.init(SI5351_CRYSTAL_LOAD_8PF, 0);
-  si5351.set_freq(currFreq * 100ULL, 0ULL, SI5351_CLK0);
-  enableOutput();
-  si5351.drive_strength(SI5351_CLK0, SI5351_DRIVE_8MA);
-  
-  si5351.output_enable(SI5351_CLK1, 0);
-  si5351.output_enable(SI5351_CLK2, 0);
-  delay(750);
-  
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
       
@@ -207,6 +203,31 @@ void setup(){
 
   pinMode(PIN_SWR_FORWARD, INPUT);
   pinMode(PIN_SWR_REVERSE, INPUT);
+
+  lcd.clear();
+  lcd.setCursor(0,1);
+  lcd.print("READING CALIBRATION");
+
+  double tempDouble;
+  EEPROM.get(0, correctionFactor);
+  //if (tempDouble < 0.00001 && tempDouble > -0.00001){correctionFactor = tempDouble;}
+  //else {correctionFactor = 0.00f;}
+  lcd.setCursor(0, 2);
+  lcd.print("*");
+  lcd.print(tempDouble);
+  lcd.setCursor(0, 3);
+  lcd.print("=");
+  lcd.print(correctionFactor);
+  delay(1000);
+
+  si5351.init(SI5351_CRYSTAL_LOAD_8PF, 0);
+  si5351.set_freq((currFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
+  enableOutput();
+  si5351.drive_strength(SI5351_CLK0, SI5351_DRIVE_8MA);
+  
+  si5351.output_enable(SI5351_CLK1, 0);
+  si5351.output_enable(SI5351_CLK2, 0);
+  delay(300);
 
   lcd.clear();
   lcd.setCursor(2, 7);
@@ -227,8 +248,14 @@ void loop(){
   displayNeedsUpdate = false;
   
   //step up or down or change step size, for encoder turns
-  if ((encoderChange > 0)){currFreq += steps[currMode][stepIndex]; currFreq = min(currFreq, MAX_FREQ); setFrequency_5351(currFreq); displayNeedsUpdate = true;}
-  if ((encoderChange < 0)){currFreq -= steps[currMode][stepIndex]; currFreq = max(currFreq, MIN_FREQ); setFrequency_5351(currFreq); displayNeedsUpdate = true;}
+  if (currMode != mode_calibrate){
+    if ((encoderChange > 0)){currFreq += steps[currMode][stepIndex]; currFreq = min(currFreq, MAX_FREQ); setFrequency_5351(currFreq); displayNeedsUpdate = true;}
+    if ((encoderChange < 0)){currFreq -= steps[currMode][stepIndex]; currFreq = max(currFreq, MIN_FREQ); setFrequency_5351(currFreq); displayNeedsUpdate = true;}
+  }
+  else{
+    if (encoderChange > 0){correctionFactor += 0.0000001; setFrequency_5351(currFreq); displayNeedsUpdate = true;}
+    if (encoderChange < 0){correctionFactor -= 0.0000001; setFrequency_5351(currFreq); displayNeedsUpdate = true;}
+  }
   
   //pressing the encoder button increments through the possible step sizes for each mode;
   //in WSPR or CQ modes, the encoder button triggers the transmission of WSPR or a CQ, respectively.
@@ -251,12 +278,47 @@ void loop(){
       transmitSpace();
       transmitMorseWord(morseCallsign);
     }
+    else if (currMode == mode_calibrate){
+      correctionFactor = 0.00;
+    }
   }
 
   //pressing the mode button cycles through the available modes
   if (checkButtonPress(PIN_BUTTON_MODE)){
+
+      //if the correctionFacotr has changed and we're leaving calibration mode, write the new correction factor to the EEPROM
+      //Note that we do this check before actually advancing to the next mode
+      if (currMode == mode_calibrate && correctionFactor != prevCorrectionFactor){
+        writeCF();
+        //DEBUG
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("CALIBRATION STORED");
+        delay(1000);
+        displayNeedsUpdate = true;
+
+        double tempDouble;
+        EEPROM.get(0, tempDouble);
+        if (tempDouble < 0.00001 && tempDouble > -0.00001){correctionFactor = tempDouble;}
+        else correctionFactor = 0.00f;
+        lcd.setCursor(0, 2);
+        lcd.print("*");
+        lcd.print(tempDouble);
+        lcd.setCursor(0, 3);
+        lcd.print("=");
+        lcd.print(correctionFactor);
+        delay(10000);
+      }
+
+      //actually change the mode, and reset the step index
       currMode = (currMode+1) % NUM_MODES;
       stepIndex = 0;
+
+      //if entering calibration mode, make a note of the current correction factor so we can tell later if it changes
+      if (currMode == mode_calibrate){
+        prevCorrectionFactor = correctionFactor;
+      }
+      
       if (currMode == mode_WSPR){ //If entering WSPR mode, set the current freqency to the bottom of the WSPR band slice
         currFreq = findWSPRBand();
       }
@@ -357,24 +419,22 @@ void displayInfo(){
   lcd.setCursor(20-strlen(modeNames[currMode]), 3);
   lcd.print(modeNames[currMode]);
 
-  //DEBUG
-  //lcd.setCursor(0,0);
-  //lcd.print(getCurrentBand());
+  //If we're in calibration mode, print current calibration factor on line 2:
+  if (currMode == mode_calibrate){
+    lcd.setCursor(0, 1);
+    lcd.print("CORRECTION");
 
-  /*float fwd = analogRead(PIN_SWR_FORWARD);
-  float rev = analogRead(PIN_SWR_REVERSE);
-  float gamma = rev/fwd;
-  float swr = (1 + abs(gamma)) / (1 - abs(gamma));
-
-  lcd.setCursor(0, 1);
-  lcd.print(int(fwd));
-  lcd.setCursor(4, 1);
-  lcd.print(int(rev));
-  lcd.setCursor(8, 1);
-  lcd.print(gamma);
-  lcd.setCursor(14, 1);
-  lcd.print(swr);*/
+    int correctionPPM = int(correctionFactor * pow(10, 6));
   
+    int correctionPad = 0;
+    if (correctionPPM < 100) correctionPad++;
+    if (correctionPPM < 10) correctionPad++;
+    if (correctionPPM > 0) correctionPad++;
+
+    lcd.setCursor(9, 1);  
+    for (int i = 0; i < correctionPad; i++) lcd.print(" ");
+    lcd.print(correctionPPM);
+  }
 }
 
 boolean checkButtonPress(int pin){
@@ -394,16 +454,25 @@ boolean checkButtonPress(int pin){
 void setFrequency_5351(long newFreq){
   switch (currMode){
     case mode_testing:
-      si5351.set_freq((newFreq + correctionFactor) * 100ULL, 0ULL, SI5351_CLK0);
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
       break;
     case mode_basic:
-      si5351.set_freq(newFreq * 100ULL, 0ULL, SI5351_CLK0);
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
       break;
     case mode_polyakov:
-      si5351.set_freq((newFreq / 2) * 100ULL, 0ULL, SI5351_CLK0);
+      si5351.set_freq(((newFreq * (1 + correctionFactor))/ 2) * 100ULL, 0ULL, SI5351_CLK0);
       break;
     case mode_bfo:
-      si5351.set_freq(newFreq * 100ULL, 0ULL, SI5351_CLK0);
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
+      break;
+    case mode_WSPR:
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
+      break;
+    case mode_CQ:
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
+      break;
+    case mode_calibrate:
+      si5351.set_freq((newFreq * (1 + correctionFactor)) * 100ULL, 0ULL, SI5351_CLK0);
       break;
   }
 }
@@ -583,5 +652,9 @@ void transmitIntracharacter(){
 void transmitSpace(){
   disableOutput();
   delay(morseElementLength*6); //each element naturally has a one-dot space built in that follows it.
+}
+
+void writeCF(){
+  EEPROM.put(0, correctionFactor);
 }
 
